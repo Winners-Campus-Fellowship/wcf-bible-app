@@ -13,11 +13,12 @@
 	let translation: BibleTranslation = 'NIV';
 
 	async function getChapter(input: string, translation: BibleTranslation) {
-		//normalize the input (so it has the form [book][chapter]) to increase cache hits
-		const querySplit = input.split(/[ :,–]/).filter(Boolean);
-		const modifiedQuery = querySplit.slice(0, 2).join('');
+		osis = parseQuery(input)!;
+		
+		if(!osis) return;
+
 		const params = new URLSearchParams({
-			query: modifiedQuery,
+			query: `${osis.book}.${osis.chapter}`, //normalize the query to increase cache hits
 			translation
 		});
 
@@ -26,12 +27,11 @@
 		if (res.status === 400) return;
 
 		const resolved = await res.json();
-
+		
 		// before saving the response, verify that something was returned
-		osis = parseQuery(input)!;
 		verseData = resolved.verses.length === 0 ? verseData : resolved.verses;
 		verseLimit = resolved.verses.length === 0 ? verseLimit : resolved.numVerses;
-		selectedVerse = resolved.verses.length === 0 ? selectedVerse : resolved.selectedVerse;
+		selectedVerse = resolved.verses.length === 0 ? selectedVerse : osis.selectedVerse;
 		verseReference =
 			resolved.verses.length === 0
 				? verseReference
