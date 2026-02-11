@@ -3,8 +3,8 @@ import { YVP_APP_KEY, API_BIBLE_APP_KEY } from '$env/static/private';
 
 import { parseQuery, getUSFMReferences, type OSISReference } from '$lib/shared/format';
 
-import YVTranslationsMap from './YVTranslations.json' with { type: 'json' };
-import APIBibleTranslationsMap from './APIBibleTranslations.json' with { type: 'json' };
+import YVTranslationsMap from '../shared/YVTranslations.json' with { type: 'json' };
+import APIBibleTranslationsMap from '../shared/APIBibleTranslations.json' with { type: 'json' };
 
 export type BibleTranslation =
 	| keyof typeof YVTranslationsMap
@@ -50,7 +50,7 @@ export async function getVerses(query: string, translation: BibleTranslation) {
  * @example
  * const osis = { book: "JHN", chapter: 3, numVerses: 36, selectedVerse: 15 };
  * const verses = await queryYVP(osis, "NIV");
- * // => [{ verse: 1, text: "..." }, { verse: 2, text: "..." }, ...]
+ * // => [{ id: 1, text: "..." }, { id: 2, text: "..." }, ...]
  */
 async function queryYVP(osis: OSISReference, translation: BibleTranslation) {
 	const apiClient = new ApiClient({ appKey: YVP_APP_KEY });
@@ -84,6 +84,10 @@ async function queryYVP(osis: OSISReference, translation: BibleTranslation) {
 	}))
 	.filter((v) => v.text !== undefined);
 
+	if(verses.length === 0) { // attempt to fetch data from API.Bible in the case of a failure
+		return queryAPIBible(osis, translation);
+	}
+
 	return verses;
 }
 
@@ -98,7 +102,7 @@ async function queryYVP(osis: OSISReference, translation: BibleTranslation) {
  * @example
  * const osis = { book: "JHN", chapter: 3, numVerses: 36, selectedVerse: 15 };
  * const verses = await queryAPIBible(osis, "t_web2ed1nt_tb");
- * // => [{ verse: 1, text: "..." }, { verse: 2, text: "..." }, ...]
+ * // => [{ id: 1, text: "..." }, { id: 2, text: "..." }, ...]
  */
 async function queryAPIBible(osis: OSISReference, translation: BibleTranslation) {
 	const verseReferences = getUSFMReferences(osis);
