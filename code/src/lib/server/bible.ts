@@ -19,9 +19,9 @@ export type Verse = {
  * Fetches verses for a biblical reference.
  *
  * @param {string} query - A user-provided biblical reference (e.g. "John 3:16", "Psalm 23").
- * @param {BibleTranslation} translation - A key from `YVTranslationsMap` specifying the
- *   target translation to query (see `YVTranslationsMap`).
- * @returns {Promise<Verse[]>} Resolves to an array of `Verse` objects: `{ verse: number, text: string }`.
+ * @param {BibleTranslation} translation - A key from `YVTranslationsMap` or `APIBibleTranslationsMap` specifying the
+ *   target translation to query.
+ * @returns {Promise<Verse[]>} Resolves to an array of `Verse` objects: `{ id: number, text: string }`.
  *   Verse numbers in the returned array are 1-based and correspond to their position in the chapter.
  * @throws {Error} May throw if the underlying YouVersion API calls fail (network, auth, or API errors).
  *

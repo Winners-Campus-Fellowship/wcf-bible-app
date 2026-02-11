@@ -13,9 +13,11 @@
 	let translation: BibleTranslation = 'NKJV';
 
 	async function getChapter(input: string, translation: BibleTranslation) {
-		osis = parseQuery(input)!;
+		const testOsis = parseQuery(input)!;
 
-		if (!osis) return; // 'no results found' message can be shown on dropdown
+		if (!testOsis) return; // 'no results found' message can be shown on dropdown
+
+		osis = testOsis; // we only assign the result of the parsing if it's a valid query
 
 		const params = new URLSearchParams({
 			query: `${osis.book}.${osis.chapter}`, // normalize the query to increase cache hits
@@ -23,25 +25,17 @@
 		});
 
 		const res = await fetch(`api/verses?${params.toString()}`);
-
-		if (res.status === 400) return; // 'no results found' message can be shown on dropdown
-
 		const resolved = await res.json();
 
-		// before saving the response, verify that something was returned
-		verseData = resolved.verses.length === 0 ? verseData : resolved.verses;
-		verseLimit = resolved.verses.length === 0 ? verseLimit : resolved.numVerses;
-		selectedVerseIndex = resolved.verses.length === 0 ? selectedVerseIndex : osis.selectedVerse;
-		verseReference =
-			resolved.verses.length === 0
-				? verseReference
-				: `${bookMap[osis.book]} ${osis.chapter}:${resolveSelectedVerseId()}`;
+		verseData = resolved.verses;
+		verseLimit = resolved.numVerses;
+		selectedVerseIndex = osis.selectedVerse;
+		verseReference = `${bookMap[osis.book]} ${osis.chapter}:${resolveSelectedVerseId()}`;
 	}
 
 	onMount(async () => await getChapter('John 1:1', translation)); // this will be the default verse
 
 	// Resolves and returns a valid selected verse ID, defaulting to the first available verse when the requested verse is missing
-
 	function resolveSelectedVerseId() { 
 		if (!selectedVerseIndex) selectedVerseIndex = 0;
 
