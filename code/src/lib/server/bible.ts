@@ -82,7 +82,7 @@ async function queryYVP(osis: OSISReference, translation: BibleTranslation) {
 		id: parseInt(responses[i].id.split('.')[2]),
 		text: responses[i].content
 	}))
-	.filter((v) => v.text !== undefined);
+	.filter((v) => v.text);
 
 	if(verses.length === 0) { // attempt to fetch data from API.Bible in the case of a failure
 		return queryAPIBible(osis, translation);
@@ -135,7 +135,7 @@ async function queryAPIBible(osis: OSISReference, translation: BibleTranslation)
 		id: parseInt(verseReferences[i].split('.')[2]),
 		text: verseTextMap[verseReferences[i]]
 	}))
-	.filter((v) => v.text !== 'undefined');
+	.filter((v) => v.text);
 
 	return verses;
 }

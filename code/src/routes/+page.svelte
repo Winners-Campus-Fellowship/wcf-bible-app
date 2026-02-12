@@ -5,6 +5,8 @@
 	import { type BibleTranslation, type Verse } from '$lib/server/bible';
 	import YVTranslations from "$lib/shared/YVTranslations.json" with { type: "json" }
 	import APIBibleTranslations from "$lib/shared/APIBibleTranslations.json" with { type: "json" };
+	import { bcv_parser } from 'bible-passage-reference-parser/esm/bcv_parser';
+	import * as lang from 'bible-passage-reference-parser/esm/lang/en.js';
 
 	let userInput = '';
 	let verseLimit = 1;
@@ -36,35 +38,69 @@
 		const res = await fetch(`api/verses?${params.toString()}`);
 		const resolved = await res.json();
 		
-		// verse length must be verified since some translations 
+		// verse length must be verified since some translations do not have certain verses
 		verseData = resolved.verses.length === 0 ? verseData : resolved.verses;
 		verseLimit = resolved.verses.length === 0 ? verseLimit : resolved.numVerses;
-		selectedVerseIndex = resolved.verses.length === 0 ? selectedVerseIndex : osis.selectedVerse;
+		selectedVerseIndex = resolved.verses.length === 0 ? selectedVerseIndex : osis.selectedVerse - 1;
 		verseReference =
 			resolved.verses.length === 0
 				? verseReference
-				: `${bookMap[osis.book]} ${osis.chapter}:${selectedVerseIndex + 1}`;
+				: resolveVerseReference();
 	}
 
 	onMount(() => getChapter('John 1:1', selectedTranslation)); // this will be the default verse
 
-	/** Resolves and returns a valid selected verse ID, defaulting to the first available verse when the requested verse is missing. */
-	function resolveSelectedVerseId() { 
-		if (!selectedVerseIndex) selectedVerseIndex = 0;
 
-		// selectedVerseIndex must be updated since it is used to check bounds
-		const index = verseData.findIndex((value) => value?.id === selectedVerseIndex);
-		selectedVerseIndex = index > 0 ? index : 0; // if match not found, default to the first entry
+	/** Resolves and returns a valid selected verse ID.*/
+	function resolveVerseReference(): string {
+		const verseNumber = verseData[selectedVerseIndex]?.id ?? verseData[0]?.id;
 
-		return verseData[index]?.id ? verseData[index]?.id : verseData[0]?.id;
+		return `${bookMap[osis.book]} ${osis.chapter}:${verseNumber}`;
 	}
+
+
+	let showSuggestions = false;
+	let autoSuggestions: string[] = [];
+	
+	function getSuggestions() { // should be renamed to get suggesiton options
+		const bcv = new bcv_parser(lang);
+		const { passage: { books: parsed } } = bcv.parse(userInput);
+		const parsedResult = parseQuery(userInput)!;
+		autoSuggestions = []; // reset suggestions
+
+		if(parsed[0]) {
+			const passageReference: string[] = parsed[0].parsed;
+
+			passageReference.forEach(book => {
+				if(parsedResult && parsedResult.verseProvided) {
+					autoSuggestions.push(`${book} ${parsedResult.chapter}:${parsedResult.selectedVerse}`);
+				} else if(parsedResult && !parsedResult.verseProvided) {
+					autoSuggestions.push(`${book} ${parsedResult.chapter}`);
+				}
+			});
+
+			showSuggestions = true;
+			autoSuggestions = autoSuggestions.filter(suggestion => parseQuery(suggestion) !== null);
+		}
+	}
+
 </script>
 
 <h1>Welcome to SvelteKit</h1>
 <p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
 
 <!-- NOTE: THESE ARE TEST COMPONENTS AND CAN BE REPLACED WITH THE REAL COMPONENTS -->
-<input type="text" bind:value={userInput} />
+<input type="text" bind:value={userInput} on:input={getSuggestions} list="query"/>
+{#if showSuggestions}
+	<div>
+		{#each autoSuggestions as suggestion }
+			<option on:click={() => console.log(suggestion)}>
+				{suggestion}
+			</option>
+		{/each}
+	</div>
+{/if}
+
 <button on:click={async () => await getChapter(userInput, selectedTranslation)}>Submit</button>
 
 <div>
@@ -72,22 +108,28 @@
 	<p>{verseData[selectedVerseIndex]?.text}</p>
 </div>
 
-<button
+<button id="button"
 	on:click={() => {
 		selectedVerseIndex -= 1;
-		verseReference = `${bookMap[osis.book]} ${osis.chapter}:${verseData[selectedVerseIndex].id}`;
+		verseReference = resolveVerseReference();
 	}}
 	disabled={selectedVerseIndex == 0}>Previous</button
 >
 <button
 	on:click={() => {
 		selectedVerseIndex += 1;
-		verseReference = `${bookMap[osis.book]} ${osis.chapter}:${verseData[selectedVerseIndex].id}`;
+		verseReference = resolveVerseReference();
 	}}
 	disabled={selectedVerseIndex == verseLimit - 1}>Next</button
 >
 
-<select bind:value={selectedTranslation} on:change={() => getChapter(verseReference, selectedTranslation)}>
+<select bind:value={selectedTranslation} on:change={() => {
+	getChapter(verseReference, selectedTranslation);
+
+	// verse reference is updated again to handle the case where the user changes to a translation that 
+	// doesn't have the selected verse
+	verseReference = `${bookMap[osis.book]} ${osis.chapter}:${verseData[selectedVerseIndex].id}`;
+}}>
 	{#each translations as translation}
 		<option value={translation}>{translation}</option>
 	{/each}
