@@ -2,13 +2,14 @@ import * as lang from 'bible-passage-reference-parser/esm/lang/en.js';
 import { bcv_parser } from 'bible-passage-reference-parser/esm/bcv_parser.js';
 
 import USFMMap from './USFM.json' with { type: 'json' };
-import bookMap from './books.json' with { type: 'json' };
+import bookMap from './OSIS.json' with { type: 'json' };
 
 export type OSISReference = {
 	book: keyof typeof bookMap;
 	chapter: number;
 	numVerses: number;
 	selectedVerse: number;
+	verseProvided: boolean;
 };
 
 /**
@@ -36,16 +37,14 @@ export function parseQuery(query: string): OSISReference | null {
 
 	const generalResult = bcv.parse(query).entities[0].passages[0];
 
-	// change compaction strategy otherwise only the first verse is returned in the 'start' and 'end' objects of the result
-	bcv.set_options({ osis_compaction_strategy: 'bcv' });
-
 	// handle the case where the chapter hasn't been specified yet or the input is invalid (e.g. out of bounds for chapter)
-	if (generalResult.start.c === undefined || generalResult.valid.valid === false) {
-		return null;
-	}
+	if (generalResult.start.c === undefined || generalResult.valid.valid === false) return null;
 
 	// modify the user input so that we can use bcv.parse to get the verse range for the chapter in the OSIS output
 	const modifiedQuery = `${generalResult.start.b}.${generalResult.start.c}`;
+
+	// change compaction strategy otherwise only the first verse is returned in the 'start' and 'end' objects of the parsing result
+	bcv.set_options({ osis_compaction_strategy: 'bcv' });
 
 	const fullRange = bcv.parse(modifiedQuery).osis(); // output has form: Gen.1.1-Gen.1.31
 	const upperBound = fullRange.split('-')[1];
@@ -55,7 +54,8 @@ export function parseQuery(query: string): OSISReference | null {
 		book: generalResult.start.b as keyof typeof bookMap,
 		chapter: generalResult.start.c,
 		numVerses: lastVerseInChapter,
-		selectedVerse: generalResult.start.v ? generalResult.start.v - 1 : 0 // start at the first verse if no verse was specified by the user. 0-indexing is accounted for
+		selectedVerse: generalResult.start.v ? generalResult.start.v : 1, // start at the first verse if no verse was specified by the user.
+		verseProvided: generalResult.start.v ? true : false
 	};
 }
 
